@@ -1,0 +1,47 @@
+name: Build and Deploy Web (Chromebook)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '3.1.64'
+
+      - name: Build WebAssembly
+        run: |
+          emcmake cmake -S web -B build-web -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-web -j$(nproc)
+          mkdir -p dist
+          cp build-web/index.html dist/
+          cp build-web/index.js dist/
+          cp build-web/index.wasm dist/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
